@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Temperature Converter — Celsius / Fahrenheit / Kelvin</title>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#111827;
+      --accent:#06b6d4;
+      --muted:#9ca3af;
+      --text:#e6eef6;
+    }
+    body{
+      margin:0;
+      font-family:Inter, Roboto, Arial, sans-serif;
+      background:linear-gradient(180deg,#071025 0%, #0f1724 60%);
+      color:var(--text);
+      display:flex;
+      min-height:100vh;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+    }
+    .card{
+      background:var(--card);
+      width:100%;
+      max-width:720px;
+      border-radius:12px;
+      padding:28px;
+      box-shadow:0 8px 30px rgba(2,6,23,0.6);
+      border:1px solid rgba(255,255,255,0.03);
+    }
+    h1{margin:0 0 14px 0;font-size:20px;}
+    p.lead{margin:0 0 20px 0;color:var(--muted);}
+    .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+    input[type="number"], select{
+      padding:10px 12px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,0.06);
+      background:rgba(255,255,255,0.02);
+      color:var(--text);
+      font-size:15px;
+      outline:none;
+      min-width:160px;
+    }
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;}
+    .controls{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+    button{
+      background:var(--accent);
+      color:#012;
+      border:none;
+      padding:10px 14px;
+      border-radius:8px;
+      font-weight:600;
+      cursor:pointer;
+    }
+    button.secondary{
+      background:transparent;
+      color:var(--muted);
+      border:1px solid rgba(255,255,255,0.04);
+    }
+    .result{
+      margin-top:18px;
+      padding:14px;
+      border-radius:8px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));
+      border:1px solid rgba(255,255,255,0.03);
+      color:var(--text);
+    }
+    .result .val{font-weight:700;font-size:18px;}
+    .small{font-size:13px;color:var(--muted);}
+    footer{margin-top:16px;color:var(--muted);font-size:13px;text-align:right;}
+    @media(max-width:520px){
+      .row{flex-direction:column;}
+      input[type="number"], select{width:100%;}
+      .controls{align-items:stretch;}
+    }
+  </style>
+</head>
+<body>
+  <div class="card" role="application">
+    <h1>Temperature Converter</h1>
+    <p class="lead">Convert between Celsius (°C), Fahrenheit (°F) and Kelvin (K). Enter a value, choose the input unit and either pick a target unit or "All".</p>
+
+    <div class="row">
+      <div style="flex:1 1 200px;">
+        <label for="value">Value</label>
+        <input id="value" type="number" step="any" placeholder="e.g. 25" />
+      </div>
+      <div style="flex:1 1 180px;">
+        <label for="from">From</label>
+        <select id="from" aria-label="From unit">
+          <option value="C">Celsius (°C)</option>
+          <option value="F">Fahrenheit (°F)</option>
+          <option value="K">Kelvin (K)</option>
+        </select>
+      </div>
+      <div style="flex:1 1 180px;">
+        <label for="to">To</label>
+        <select id="to" aria-label="To unit">
+          <option value="ALL">All units</option>
+          <option value="C">Celsius (°C)</option>
+          <option value="F">Fahrenheit (°F)</option>
+          <option value="K">Kelvin (K)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="convert">Convert</button>
+      <button id="swap" class="secondary" title="Swap from/to">Swap From/To</button>
+      <button id="clear" class="secondary">Clear</button>
+      <div style="flex:1"></div>
+      <div class="small">Note: Kelvin values must be ≥ 0 K.</div>
+    </div>
+
+    <div id="result" class="result" aria-live="polite" hidden>
+      <div id="singleResult"></div>
+      <div id="allResults" style="margin-top:8px;"></div>
+    </div>
+
+    <footer>SkillCraft — Temperature task</footer>
+  </div>
+
+  <script>
+    function cToF(c){ return c * 9/5 + 32; }
+    function cToK(c){ return c + 273.15; }
+    function fToC(f){ return (f - 32) * 5/9; }
+    function fToK(f){ return (f - 32) * 5/9 + 273.15; }
+    function kToC(k){ return k - 273.15; }
+    function kToF(k){ return (k - 273.15) * 9/5 + 32; }
+
+    function fmt(n){
+      if (!isFinite(n)) return '—';
+      let s = (Math.round((n + Number.EPSILON) * 1e6) / 1e6).toString();
+      if (s.indexOf('.') >= 0) s = s.replace(/\.?0+$/, '');
+      return s;
+    }
+
+    const el = {
+      value: document.getElementById('value'),
+      from: document.getElementById('from'),
+      to: document.getElementById('to'),
+      convert: document.getElementById('convert'),
+      swap: document.getElementById('swap'),
+      clear: document.getElementById('clear'),
+      result: document.getElementById('result'),
+      singleResult: document.getElementById('singleResult'),
+      allResults: document.getElementById('allResults')
+    };
+
+    function validateInput(v, unit){
+      if (!isFinite(v)) return 'Please enter a valid number.';
+      if (unit === 'K' && v < 0) return 'Kelvin cannot be negative (must be ≥ 0 K).';
+      return null;
+    }
+
+    function convert(value, fromUnit){
+      let v = Number(value);
+      if (fromUnit === 'C') return { C: v, F: cToF(v), K: cToK(v) };
+      else if (fromUnit === 'F') return { C: fToC(v), F: v, K: fToK(v) };
+      else return { C: kToC(v), F: kToF(v), K: v };
+    }
+
+    function showError(msg){
+      el.result.hidden = false;
+      el.singleResult.innerHTML = <div class="val" style="color:#fca5a5;">Error: ${msg}</div>;
+      el.allResults.innerHTML = '';
+    }
+
+    function doConversion(){
+      const raw = el.value.value.trim();
+      if (raw === ''){ showError('Please enter a temperature value.'); return; }
+      const v = Number(raw);
+      const from = el.from.value;
+      const to = el.to.value;
+
+      const vErr = validateInput(v, from);
+      if (vErr){ showError(vErr); return; }
+
+      const res = convert(v, from);
+      el.result.hidden = false;
+      el.allResults.innerHTML = '';
+      el.singleResult.innerHTML = '';
+
+      if (to === 'ALL'){
+        el.singleResult.innerHTML = <div class="small">Input: ${fmt(v)} ${unitLabel(from)}</div>;
+        el.allResults.innerHTML = `
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;">
+            <div><div class="small">Celsius</div><div class="val">${fmt(res.C)} °C</div></div>
+            <div><div class="small">Fahrenheit</div><div class="val">${fmt(res.F)} °F</div></div>
+            <div><div class="small">Kelvin</div><div class="val">${fmt(res.K)} K</div></div>
+          </div>`;
+      } else {
+        let outVal = 0;
+        if (to === 'C') outVal = res.C;
+        if (to === 'F') outVal = res.F;
+        if (to === 'K') outVal = res.K;
+        if (to === 'K' && outVal < 0){ showError('Resulting Kelvin value is negative.'); return; }
+        el.singleResult.innerHTML = `
+          <div class="small">Input: ${fmt(v)} ${unitLabel(from)}</div>
+          <div style="margin-top:8px;"><div class="val">${fmt(outVal)} ${unitLabel(to)}</div></div>`;
+      }
+    }
+
+    function unitLabel(u){ if (u === 'C') return '°C'; if (u === 'F') return '°F'; return 'K'; }
+
+    el.convert.addEventListener('click', doConversion);
+    el.value.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') doConversion(); });
+
+    el.swap.addEventListener('click', ()=>{
+      const fromVal = el.from.value;
+      const toVal = el.to.value;
+      if (toVal === 'ALL'){ el.to.value = fromVal; el.from.value = 'C'; }
+      else { el.from.value = toVal; el.to.value = fromVal; }
+      if (!el.result.hidden) doConversion();
+    });
+
+    el.clear.addEventListener('click', ()=>{
+      el.value.value = '';
+      el.from.value = 'C';
+      el.to.value = 'ALL';
+      el.result.hidden = true;
+      el.singleResult.innerHTML = '';
+      el.allResults.innerHTML = '';
+      el.value.focus();
+    });
+
+    let liveTimeout = null;
+    el.value.addEventListener('input', ()=>{
+      clearTimeout(liveTimeout);
+      liveTimeout = setTimeout(()=>{
+        if (el.value.value.trim() !== '') doConversion();
+      }, 650);
+    });
+
+    el.value.value = '25';
+    el.from.value = 'C';
+    el.to.value = 'ALL';
+    doConversion();
+  </script>
+</body>
+</html>
